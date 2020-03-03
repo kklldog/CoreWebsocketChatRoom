@@ -4,7 +4,15 @@
     ViewData["Title"] = "Home page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div style="margin-bottom:5px;">
+    room no: <input type="text"  id="txtRoomNo" value="8888"/> <button id="btnJoin">join room</button> <button id="btnLeave">leave room</button>
+</div>
+<div style="margin-bottom:5px;">
+    nick name: <input type="text" id="txtNickName" value="batman" /> 
+</div>
+<div style="height:300px;width:600px">
+    <textarea style="height:100%;width:100%" id="msgList"></textarea>
+    <div style="text-align: right">
+        <input type="text" id="txtMsg" value="" />  <button id="btnSend">send</button>
+    </div>
 </div>

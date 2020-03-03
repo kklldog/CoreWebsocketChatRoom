@@ -1,23 +1,15 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace WebsocktChatRoom
 {
-    public class WebsocketClient
-    {
-        public WebSocket WebSocket { get; set; }
-
-        public string Id { get; set; }
-
-        public string RoomNo { get; set; }
-    }
-
     public class WebsocketHandlerMiddleware
     {
         private readonly RequestDelegate _next;
@@ -69,14 +61,60 @@ namespace WebsocktChatRoom
 
         private async Task Handle(WebsocketClient webSocket)
         {
-            var buffer = new byte[1024 * 1];
+            WebsocketClientCollection.Add(webSocket);
+            _logger.LogInformation($"Websocket client added.");
+           
             WebSocketReceiveResult result = null;
             do
             {
+                var buffer = new byte[1024 * 1];
                 result = await webSocket.WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                if (result.MessageType == WebSocketMessageType.Text && !result.CloseStatus.HasValue)
+                {
+                    var msgString = Encoding.UTF8.GetString(buffer);
+                    _logger.LogInformation($"Websocket client ReceiveAsync message {msgString}.");
+                    var message = JsonConvert.DeserializeObject<Message>(msgString);
+                    message.SendClientId = webSocket.Id;
+                    MessageRoute(message);
+                }
             }
             while (!result.CloseStatus.HasValue);
+            WebsocketClientCollection.Remove(webSocket);
             _logger.LogInformation($"Websocket client closed.");
+        }
+
+        private void MessageRoute(Message message)
+        {
+            var client = WebsocketClientCollection.Get(message.SendClientId);
+            switch (message.action)
+            {
+                case "join":
+                    client.RoomNo = message.msg;
+                    client.SendMessageAsync($"{message.nick} join room {client.RoomNo} success .");
+                    _logger.LogInformation($"Websocket client {message.SendClientId} join room {client.RoomNo}.");
+                    break;
+                case "send_to_room":
+                    if (string.IsNullOrEmpty(client.RoomNo))
+                    {
+                        break;
+                    }
+                    var clients = WebsocketClientCollection.GetRoomClients(client.RoomNo);
+                    clients.ForEach(c =>
+                    {
+                        c.SendMessageAsync(message.nick + " : " + message.msg);
+                    });
+                    _logger.LogInformation($"Websocket client {message.SendClientId} send message {message.msg} to room {client.RoomNo}");
+
+                    break;
+                case "leave":
+                    var roomNo = client.RoomNo;
+                    client.RoomNo = "";
+                    client.SendMessageAsync($"{message.nick} leave room {roomNo} success .");
+                    _logger.LogInformation($"Websocket client {message.SendClientId} leave room {roomNo}");
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }
